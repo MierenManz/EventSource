@@ -2,8 +2,7 @@ interface EventSourceInit {
   withCredentials: boolean;
 }
 
-type EventHandler = (e: { data: string }) => void | Promise<void>;
-type VoidFunction = () => void | Promise<void>;
+type EventHandler<Evt extends Event> = (e: Evt) => void | Promise<void>;
 
 interface CorsAttributeState {
   mode: "cors";
@@ -18,7 +17,7 @@ interface PartialRequest extends Partial<CorsAttributeState> {
 }
 
 interface Settings {
-  url: URL | string;
+  url: string;
   request: PartialRequest | null;
   reconnectionTime: number;
   lastEventID: string;
@@ -41,26 +40,26 @@ export class EventSource extends EventTarget {
   #settings: Settings = {
     url: "",
     request: null,
-    reconnectionTime: 1500,
+    reconnectionTime: 3000,
     lastEventID: "",
   };
+
   #firstTime = true;
   #abortController = new AbortController();
 
   get url(): string {
-    return new URL(this.#settings.url.toString()).toString();
+    return this.#settings.url;
   }
 
-  onopen: VoidFunction | null = null;
-  onmessage: EventHandler | null = null;
-  onerror: VoidFunction | null = null;
+  onopen: EventHandler<Event> | null = null;
+  onmessage: EventHandler<MessageEvent<string>> | null = null;
+  onerror: EventHandler<Event> | null = null;
 
-  constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
+  constructor(url: string, eventSourceInitDict?: EventSourceInit) {
     super();
 
     try {
-      const urlRecord = new URL(url.toString());
-      this.#settings.url = urlRecord;
+      this.#settings.url = new URL(url).toString();
     } catch (e) {
       throw new SyntaxError(e.message);
     }
@@ -90,38 +89,126 @@ export class EventSource extends EventTarget {
   async #fetch(): Promise<void> {
     while (this.#readyState < 2) {
       const res = await fetch(this.url, this.#settings.request!)
-      .catch(() => void (0));
+        .catch(() => void (0));
 
-    if (
-      res?.status === 200 &&
-      res.headers.get("content-type")?.startsWith("text/event-stream")
-    ) {
-      // Announce connection
-      if (this.#readyState !== 2 && this.#firstTime) {
-        this.#firstTime = false;
-        this.#readyState = 1;
-        this.dispatchEvent(new Event("open"));
-        if (this.onopen) await this.onopen();
+      if (
+        res?.status === 200 &&
+        res.headers.get("content-type")?.startsWith("text/event-stream")
+      ) {
+        // Announce connection
+        if (this.#readyState !== 2 && this.#firstTime) {
+          this.#firstTime = false;
+          this.#readyState = 1;
+          const openEvent = new Event("open", {
+            bubbles: false,
+            cancelable: false,
+          });
+          super.dispatchEvent(openEvent);
+          if (this.onopen) await this.onopen(openEvent);
+        }
 
-        // Data processing
+        // Split lines for interpreting
+        const lines = (await res.text())
+          .replaceAll("\r\n", "\n")
+          .replaceAll("\r", "\n")
+          .split("\n");
+
+        // Initiate buffers
+        let lastEventIDBuffer = "";
+        let eventTypeBuffer = "";
+        let dataBuffer = "";
+
+        // Start loop for interpreting
+        for (const line of lines) {
+          if (!line) {
+            this.#settings.lastEventID = lastEventIDBuffer;
+
+            // Check if buffer is not an empty string
+            if (dataBuffer) {
+              // Create event
+              if (!eventTypeBuffer) {
+                eventTypeBuffer = "message";
+              }
+
+              const event = new MessageEvent<string>(eventTypeBuffer, {
+                data: dataBuffer.trim(),
+                origin: res.url,
+                lastEventId: this.#settings.lastEventID,
+                cancelable: false,
+                bubbles: false,
+              });
+
+              if (this.readyState !== 2) {
+                // Fire event
+                super.dispatchEvent(event);
+                if (this.onmessage) this.onmessage(event);
+              }
+            }
+
+            // Clear buffers
+            dataBuffer = "";
+            eventTypeBuffer = "";
+            continue;
+          }
+
+          // Ignore comments
+          if (line[0] === ":") continue;
+
+          let splitIndex = line.indexOf(":");
+          splitIndex = splitIndex > 0 ? splitIndex : line.length;
+          const field = line.slice(0, splitIndex).trim();
+          const data = line.slice(splitIndex + 1).trim();
+          switch (field) {
+            case "event":
+              // Set fieldBuffer to Field Value
+              eventTypeBuffer = data;
+              break;
+            case "data":
+              // append Field Value to dataBuffer
+              dataBuffer += `${data}\n`;
+              break;
+            case "id":
+              // set lastEventID to Field Value
+              if (data !== "NULL") {
+                lastEventIDBuffer = data;
+              }
+              break;
+            case "retry": {
+              const num = parseInt(data);
+              if (!isNaN(num)) {
+                this.#settings.reconnectionTime = num;
+              }
+              break;
+            }
+          }
+        }
+      } else {
+        // Connection failed for whatever reason
+        // No retry
+        this.#readyState = 2;
+        this.#abortController.abort();
+        const errorEvent = new Event("error", {
+          bubbles: false,
+          cancelable: false,
+        });
+
+        super.dispatchEvent(errorEvent);
+        if (this.onerror) await this.onerror(errorEvent);
+        break;
       }
-    } else {
-      // Connection failed for whatever reason
-      // No retry
-      console.log("WHAT")
-      this.#readyState = 2;
-      this.dispatchEvent(new Event("error"));
-      if (this.onerror) await this.onerror();
-      continue;
-    }
       // Set readyState to CONNECTING
       this.#readyState = 0;
 
       // Fire onerror
-      this.dispatchEvent(new Event("error"));
-      if (this.onerror) await this.onerror();
+      const errorEvent = new Event("error", {
+        bubbles: false,
+        cancelable: false,
+      });
 
-      // Timeout for reestablishing the connection
+      super.dispatchEvent(errorEvent);
+      if (this.onerror) await this.onerror(errorEvent);
+
+      // Timeout for re-establishing the connection
       await new Promise((res) =>
         setTimeout(res, this.#settings.reconnectionTime)
       );
@@ -137,14 +224,3 @@ export class EventSource extends EventTarget {
     }
   }
 }
-
-const s = new EventSource("http://localhost:8000");
-s.addEventListener("open", (ree) => {
-  console.log(ree, "CONNECTION OPEN ON addEventListener");
-});
-s.onopen = () => console.log("CONNECTION OPEN ON onopen");
-s.onerror = () => console.log("SOME ERROR ;-;");
-s.addEventListener("error", (ree) => console.log(ree));
-await new Promise(r => setTimeout(r, 5000));
-console.log("timeout done, closing");
-s.close();
