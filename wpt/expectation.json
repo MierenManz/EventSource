@@ -1,0 +1,160 @@
+{
+  "eventsource": {
+    "event-data.html": [
+      "Untitled"
+    ],
+    "eventsource-close.htm": [
+      "Untitled",
+      "EventSource: close(), test events"
+    ],
+    "eventsource-constructor-document-domain.htm": [
+      "Untitled"
+    ],
+    "eventsource-constructor-empty-url.any.html": [
+      "EventSource constructor with an empty url."
+    ],
+    "eventsource-constructor-empty-url.html": [
+      "Passing empty string to the EventSource constructor"
+    ],
+    "eventsource-constructor-non-same-origin.htm": [
+      "EventSource: constructor (act as if there is a network error) (ftp://example.not/)",
+      "EventSource: constructor (act as if there is a network error) (about:blank)",
+      "EventSource: constructor (act as if there is a network error) (mailto:whatwg@awesome.example)",
+      "EventSource: constructor (act as if there is a network error) (javascript:alert('FAIL'))"
+    ],
+    "eventsource-constructor-stringify.htm": [
+      "EventSource: stringify argument, object",
+      "EventSource: stringify argument, 1",
+      "EventSource: stringify argument, null",
+      "EventSource: stringify argument, undefined"
+    ],
+    "eventsource-constructor-url-bogus.any.html": [
+      "Untitled"
+    ],
+    "eventsource-constructor-url-multi-window.htm": false,
+    "eventsource-cross-origin.htm": false,
+    "eventsource-eventtarget.htm": [
+      "Untitled"
+    ],
+    "eventsource-onmessage-realm.htm": [
+      "the MessageEvent must be created in the Realm of the EventSource"
+    ],
+    "eventsource-onmessage-trusted.htm": [
+      "EventSource message events are trusted"
+    ],
+    "eventsource-onmessage.htm": [
+      "Untitled"
+    ],
+    "eventsource-onopen.htm": [
+      "Untitled"
+    ],
+    "eventsource-prototype.htm": [
+      "Untitled"
+    ],
+    "eventsource-reconnect.htm": [
+      "EventSource: reconnection 200",
+      "EventSource: reconnection, test reconnection events"
+    ],
+    "eventsource-request-cancellation.htm": [
+      "Untitled"
+    ],
+    "eventsource-url.htm": [
+      "Untitled"
+    ],
+    "format-bom-2.htm": [
+      "Untitled"
+    ],
+    "format-bom.htm": [
+      "Untitled"
+    ],
+    "format-comments.htm": [
+      "Untitled"
+    ],
+    "format-data-before-final-empty-line.htm": [
+      "Untitled"
+    ],
+    "format-field-data.htm": [
+      "Untitled"
+    ],
+    "format-field-event-empty.htm": [
+      "Untitled"
+    ],
+    "format-field-event.htm": [
+      "Untitled"
+    ],
+    "format-field-id-2.htm": [
+      "Untitled"
+    ],
+    "format-field-id-3.window.html": [
+      "EventSource: lastEventId persists",
+      "EventSource: lastEventId resets",
+      "EventSource: lastEventId resets (id without colon)"
+    ],
+    "format-field-id-null.window.html": [
+      "EventSource: id field set to %00%00",
+      "EventSource: id field set to x%00",
+      "EventSource: id field set to %00x",
+      "EventSource: id field set to x%00x",
+      "EventSource: id field set to %20%00"
+    ],
+    "format-field-id.htm": [
+      "Untitled"
+    ],
+    "format-field-parsing.htm": [
+      "Untitled"
+    ],
+    "format-field-retry-bogus.htm": [
+      "Untitled"
+    ],
+    "format-field-retry-empty.htm": [
+      "Untitled"
+    ],
+    "format-field-retry.htm": [
+      "Untitled"
+    ],
+    "format-field-unknown.htm": [
+      "Untitled"
+    ],
+    "format-leading-space.htm": [
+      "Untitled"
+    ],
+    "format-mime-bogus.htm": [
+      "Untitled"
+    ],
+    "format-mime-trailing-semicolon.htm": [
+      "Untitled"
+    ],
+    "format-mime-valid-bogus.htm": [
+      "Untitled"
+    ],
+    "format-newlines.htm": [
+      "Untitled"
+    ],
+    "format-null-character.html": [
+      "Untitled"
+    ],
+    "format-utf-8.htm": [
+      "Untitled"
+    ],
+    "request-accept.htm": [
+      "Untitled"
+    ],
+    "request-cache-control.htm": false,
+    "request-credentials.htm": false,
+    "request-redirect.htm": [
+      "EventSource: redirect (301)",
+      "EventSource: redirect (302)",
+      "EventSource: redirect (303)",
+      "EventSource: redirect (307)"
+    ],
+    "request-status-error.htm": [
+      "EventSource: incorrect HTTP status code (204)",
+      "EventSource: incorrect HTTP status code (205)",
+      "EventSource: incorrect HTTP status code (210)",
+      "EventSource: incorrect HTTP status code (299)",
+      "EventSource: incorrect HTTP status code (404)",
+      "EventSource: incorrect HTTP status code (410)",
+      "EventSource: incorrect HTTP status code (503)"
+    ]
+  }
+}
