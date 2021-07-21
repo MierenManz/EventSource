@@ -1,6 +1,10 @@
 // Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
 import { readLines } from "https://deno.land/std@0.102.0/io/mod.ts";
-import { delay } from "https://deno.land/std@0.102.0/async/mod.ts";
+import {
+  deadline,
+  DeadlineError,
+  delay,
+} from "https://deno.land/std@0.102.0/async/mod.ts";
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.3-alpha2/deno-dom-wasm.ts";
 import { assert, denoBinary, ManifestTestOptions, runPy } from "./utils.ts";
 
@@ -73,11 +77,14 @@ export async function runSingleTest(
   _options: ManifestTestOptions,
   reporter: (result: TestCaseResult) => void,
 ): Promise<TestResult> {
-  const bundle = await generateBundle(url);
+  const { bundle, longTimeout } = await generateBundle(url);
   const tempFile = await Deno.makeTempFile({
     prefix: "wpt-bundle-",
     suffix: ".js",
   });
+
+  // Short is 10 seconds, long is 60 seconds.
+  const timeout = longTimeout ? 60 * 1000 : 10 * 1000;
 
   try {
     await Deno.writeTextFile(tempFile, bundle);
@@ -104,29 +111,53 @@ export async function runSingleTest(
       stderr: "piped",
     });
 
-    const cases = [];
+    const cases: TestCaseResult[] = [];
     let stderr = "";
 
-    let harnessStatus = null;
+    let harnessStatus: TestHarnessStatus | null = null;
 
-    const lines = readLines(proc.stderr);
-    for await (const line of lines) {
-      if (line.startsWith("{")) {
-        const data = JSON.parse(line);
-        const result = { ...data, passed: data.status == 0 };
-        cases.push(result);
-        reporter(result);
-      } else if (line.startsWith("#$#$#{")) {
-        harnessStatus = JSON.parse(line.slice(5));
+    const code = await deadline(
+      (async () => {
+        const lines = readLines(proc.stderr);
+        for await (const line of lines) {
+          if (line.startsWith("{")) {
+            const data = JSON.parse(line);
+            const result = { ...data, passed: data.status == 0 };
+            cases.push(result);
+            reporter(result);
+          } else if (line.startsWith("#$#$#{")) {
+            harnessStatus = JSON.parse(line.slice(5));
+          } else {
+            stderr += line + "\n";
+            console.error(line);
+          }
+        }
+
+        const { code } = await proc.status();
+        return code;
+      })(),
+      timeout,
+    ).catch((err) => {
+      if (err instanceof DeadlineError) {
+        if (Deno.build.os === "windows") {
+          proc.close();
+        } else {
+          proc.kill(Deno.Signal.SIGKILL);
+        }
+
+        harnessStatus = {
+          status: 3, // TIMEOUT
+          message: `test timed out after ${longTimeout ? 60 : 10} seconds`,
+          stack: null,
+        };
+        return 0;
       } else {
-        stderr += line + "\n";
-        console.error(line);
+        return Promise.reject(err);
       }
-    }
+    });
 
     const duration = new Date().getTime() - startTime;
 
-    const { code } = await proc.status();
     return {
       status: code,
       harnessStatus,
@@ -139,7 +170,9 @@ export async function runSingleTest(
   }
 }
 
-async function generateBundle(location: URL): Promise<string> {
+async function generateBundle(
+  location: URL,
+): Promise<{ bundle: string; longTimeout: boolean }> {
   const res = await fetch(location);
   const body = await res.text();
   const doc = new DOMParser().parseFromString(body, "text/html");
@@ -151,6 +184,17 @@ async function generateBundle(location: URL): Promise<string> {
     const titleElement = doc.getElementsByTagName("title")[0];
     documentTitle = titleElement.textContent.replace(/[\t\n\f\r ]+/, " ")
       .trim();
+  }
+
+  let longTimeout = false;
+  for (const meta of doc.getElementsByTagName("meta")) {
+    if (
+      meta.getAttribute("name") === "timeout" &&
+      meta.getAttribute("content") === "long"
+    ) {
+      longTimeout = true;
+      break;
+    }
   }
 
   const scripts = doc.getElementsByTagName("script");
@@ -192,7 +236,7 @@ import { EventSource } from ${JSON.stringify(pathToModTs.href)};
 window.EventSource = EventSource;
 `;
 
-  return setupCode + scriptContents.map(([url, contents]) => `
+  const bundle = setupCode + scriptContents.map(([url, contents]) => `
 (function() {
   const [_,err] = Deno.core.evalContext(${JSON.stringify(contents)}, ${
     JSON.stringify(url)
@@ -201,4 +245,5 @@ window.EventSource = EventSource;
     throw err?.thrown;
   }
 })();`).join("\n");
+  return { bundle, longTimeout };
 }
