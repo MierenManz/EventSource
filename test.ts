@@ -5,5 +5,5 @@ s.onmessage = (e) => {
 };
 s.onerror = (e) => {
   console.log(e);
-}
-s.addEventListener("error", console.log)
+};
+s.addEventListener("error", console.log);
