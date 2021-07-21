@@ -144,6 +144,15 @@ async function generateBundle(location: URL): Promise<string> {
   const body = await res.text();
   const doc = new DOMParser().parseFromString(body, "text/html");
   assert(doc, "document should have been parsed");
+
+  // Some tests depend only on `document.title`.
+  let documentTitle = "";
+  if (doc.getElementsByTagName("title").length > 0) {
+    const titleElement = doc.getElementsByTagName("title")[0];
+    documentTitle = titleElement.textContent.replace(/[\t\n\f\r ]+/, " ")
+      .trim();
+  }
+
   const scripts = doc.getElementsByTagName("script");
   const scriptContents = [];
   let inlineScriptCount = 0;
@@ -157,7 +166,17 @@ async function generateBundle(location: URL): Promise<string> {
       const url = new URL(src, location);
       const res = await fetch(url);
       if (res.ok) {
-        const contents = await res.text();
+        let contents = await res.text();
+
+        if (src === "/resources/testharness.js") {
+          // Some tests need document.title to be present, but if testharness.js
+          // detects that `document` exists, it'll assume the test is run in a
+          // browser. So here we set document.title *after* the main body of
+          // testharness.js
+          contents += `\nwindow.document = {title: ${
+            JSON.stringify(documentTitle)
+          }};\n`;
+        }
         scriptContents.push([url.href, contents]);
       }
     } else {
