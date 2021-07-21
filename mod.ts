@@ -14,6 +14,7 @@ interface PartialRequest extends Partial<CorsAttributeState> {
   headers: string[][];
   signal: AbortSignal;
   keepalive: boolean;
+  redirect: "follow"
 }
 
 interface Settings {
@@ -32,9 +33,9 @@ export class EventSource extends EventTarget {
     return this.#readyState;
   }
 
+  CONNECTING: 0 = 0;
   OPEN: 1 = 1;
   CLOSED: 2 = 2;
-  CONNECTING: 0 = 0;
 
   #corsAtrributeState: CorsAttributeState = {
     mode: "cors",
@@ -83,6 +84,7 @@ export class EventSource extends EventTarget {
       ...this.#corsAtrributeState,
       signal: this.#abortController.signal,
       keepalive: true,
+      redirect: "follow"
     };
 
     this.#fetch();
@@ -118,7 +120,7 @@ export class EventSource extends EventTarget {
         }
 
         // Decode body for interpreting
-        const decoder = new TextDecoderStream();
+        const decoder = new TextDecoderStream("utf-8", {ignoreBOM: false, fatal: false});
         const reader = res.body.pipeThrough(decoder);
 
         // Initiate buffers
@@ -168,8 +170,8 @@ export class EventSource extends EventTarget {
 
             let splitIndex = line.indexOf(":");
             splitIndex = splitIndex > 0 ? splitIndex : line.length;
-            const field = decodeURI(line.slice(0, splitIndex).trim());
-            const data = decodeURI(line.slice(splitIndex + 1).trim());
+            const field = decodeURIComponent(line.slice(0, splitIndex).trim());
+            const data = decodeURIComponent(line.slice(splitIndex + 1).trim());
             switch (field) {
               case "event":
                 // Set fieldBuffer to Field Value
