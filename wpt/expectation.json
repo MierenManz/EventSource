@@ -27,10 +27,7 @@
     "format-field-event-empty.htm": true,
     "format-field-event.htm": true,
     "format-field-id-2.htm": false,
-    "format-field-id-3.window.html": [
-      "EventSource: lastEventId resets (id without colon)",
-      "EventSource: lastEventId resets"
-    ],
+    "format-field-id-3.window.html": false,
     "format-field-id-null.window.html": false,
     "format-field-id.htm": false,
     "format-field-parsing.htm": false,
