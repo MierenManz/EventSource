@@ -92,6 +92,7 @@ export class EventSource extends EventTarget {
         .catch(() => void (0));
 
       if (
+        res?.body &&
         res?.status === 200 &&
         res.headers.get("content-type")?.startsWith("text/event-stream")
       ) {
@@ -107,78 +108,83 @@ export class EventSource extends EventTarget {
           if (this.onopen) await this.onopen(openEvent);
         }
 
-        // Split lines for interpreting
-        const lines = (await res.text())
-          .replaceAll("\r\n", "\n")
-          .replaceAll("\r", "\n")
-          .split("\n");
+        // Decode body for interpreting
+        const decoder = new TextDecoderStream();
+        const reader = res.body.pipeThrough(decoder);
 
         // Initiate buffers
         let lastEventIDBuffer = "";
         let eventTypeBuffer = "";
         let dataBuffer = "";
+        let readBuffer = "";
 
-        // Start loop for interpreting
-        for (const line of lines) {
-          if (!line) {
-            this.#settings.lastEventID = lastEventIDBuffer;
+        for await (const chunk of reader) {
+          const lines = this.#fixLineEnding(readBuffer + chunk).split("\n");
+          readBuffer = lines.pop() ?? "";
 
-            // Check if buffer is not an empty string
-            if (dataBuffer) {
-              // Create event
-              if (!eventTypeBuffer) {
-                eventTypeBuffer = "message";
+          // Start loop for interpreting
+          for await (const line of lines) {
+            if (!line) {
+              this.#settings.lastEventID = lastEventIDBuffer;
+
+              // Check if buffer is not an empty string
+              if (dataBuffer) {
+                // Create event
+                if (!eventTypeBuffer) {
+                  eventTypeBuffer = "message";
+                }
+
+                const event = new MessageEvent<string>(eventTypeBuffer, {
+                  data: dataBuffer.trim(),
+                  origin: res.url,
+                  lastEventId: this.#settings.lastEventID,
+                  cancelable: false,
+                  bubbles: false,
+                });
+
+                if (this.readyState !== 2) {
+                  // Fire event
+                  super.dispatchEvent(event);
+                  if (this.onmessage) this.onmessage(event);
+                }
               }
 
-              const event = new MessageEvent<string>(eventTypeBuffer, {
-                data: dataBuffer.trim(),
-                origin: res.url,
-                lastEventId: this.#settings.lastEventID,
-                cancelable: false,
-                bubbles: false,
-              });
-
-              if (this.readyState !== 2) {
-                // Fire event
-                super.dispatchEvent(event);
-                if (this.onmessage) this.onmessage(event);
-              }
+              // Clear buffers
+              dataBuffer = "";
+              eventTypeBuffer = "";
+              continue;
             }
 
-            // Clear buffers
-            dataBuffer = "";
-            eventTypeBuffer = "";
-            continue;
-          }
+            // Ignore comments
+            if (line[0] === ":") continue;
 
-          // Ignore comments
-          if (line[0] === ":") continue;
-
-          let splitIndex = line.indexOf(":");
-          splitIndex = splitIndex > 0 ? splitIndex : line.length;
-          const field = line.slice(0, splitIndex).trim();
-          const data = line.slice(splitIndex + 1).trim();
-          switch (field) {
-            case "event":
-              // Set fieldBuffer to Field Value
-              eventTypeBuffer = data;
-              break;
-            case "data":
-              // append Field Value to dataBuffer
-              dataBuffer += `${data}\n`;
-              break;
-            case "id":
-              // set lastEventID to Field Value
-              if (data !== "NULL") {
-                lastEventIDBuffer = data;
+            let splitIndex = line.indexOf(":");
+            splitIndex = splitIndex > 0 ? splitIndex : line.length;
+            const field = line.slice(0, splitIndex).trim();
+            const data = line.slice(splitIndex + 1).trim();
+            switch (field) {
+              case "event":
+                // Set fieldBuffer to Field Value
+                eventTypeBuffer = data;
+                break;
+              case "data":
+                // append Field Value to dataBuffer
+                dataBuffer += `${data}\n`;
+                break;
+              case "id":
+                // set lastEventID to Field Value
+                if (data !== "NULL") {
+                  lastEventIDBuffer = data;
+                }
+                break;
+              case "retry": {
+                // set reconnectionTime to Field Value if int
+                const num = parseInt(data);
+                if (!isNaN(num)) {
+                  this.#settings.reconnectionTime = num;
+                }
+                break;
               }
-              break;
-            case "retry": {
-              const num = parseInt(data);
-              if (!isNaN(num)) {
-                this.#settings.reconnectionTime = num;
-              }
-              break;
             }
           }
         }
@@ -222,5 +228,11 @@ export class EventSource extends EventTarget {
         );
       }
     }
+  }
+
+  #fixLineEnding(line: string): string {
+    return line
+      .replaceAll("\r\n", "\n")
+      .replaceAll("\r", "\n");
   }
 }
