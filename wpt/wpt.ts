@@ -651,8 +651,10 @@ function discoverTestsToRun(
             1,
           ) as ManifestTestVariation[]
         ) {
-          if (!path) continue;
-          const url = new URL(path, "http://web-platform.test:8000");
+          const url = new URL(
+            path ?? `${prefix}/${key}`,
+            "http://web-platform.test:8000",
+          );
           //if (
           //  !url.pathname.endsWith(".any.html") &&
           //  !url.pathname.endsWith(".window.html")
