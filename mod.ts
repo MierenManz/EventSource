@@ -11,7 +11,7 @@ interface CorsAttributeState {
 
 interface PartialRequest extends Partial<CorsAttributeState> {
   cache: "no-store";
-  headers: Headers;
+  headers: string[][];
   signal: AbortSignal;
   keepalive: boolean;
 }
@@ -32,6 +32,10 @@ export class EventSource extends EventTarget {
     return this.#readyState;
   }
 
+  OPEN: 1 = 1;
+  CLOSED: 2 = 2;
+  CONNECTING: 0 = 0;
+
   #corsAtrributeState: CorsAttributeState = {
     mode: "cors",
     credentials: "same-origin",
@@ -40,7 +44,7 @@ export class EventSource extends EventTarget {
   #settings: Settings = {
     url: "",
     request: null,
-    reconnectionTime: 3000,
+    reconnectionTime: 2200,
     lastEventID: "",
   };
 
@@ -61,7 +65,9 @@ export class EventSource extends EventTarget {
     try {
       // Allow empty url
       // https://github.com/web-platform-tests/wpt/blob/master/eventsource/eventsource-constructor-empty-url.any.js
-      this.#settings.url = url == "" ? "" : new URL(url, window.location.href).toString();
+      this.#settings.url = url == ""
+        ? ""
+        : new URL(url, window.location.href).toString();
     } catch (e) {
       throw new SyntaxError(e.message);
     }
@@ -73,7 +79,7 @@ export class EventSource extends EventTarget {
 
     this.#settings.request = {
       cache: "no-store",
-      headers: new Headers([["Accept", "text/event-stream"]]),
+      headers: [["Accept", "text/event-stream"]],
       ...this.#corsAtrributeState,
       signal: this.#abortController.signal,
       keepalive: true,
@@ -84,12 +90,13 @@ export class EventSource extends EventTarget {
   }
 
   close(): void {
-    this.#readyState = 2;
+    this.#readyState = this.CLOSED;
     this.#abortController.abort();
   }
 
   async #fetch(): Promise<void> {
-    while (this.#readyState < 2) {
+    let currentRetries = 0;
+    while (this.#readyState < this.CLOSED) {
       const res = await fetch(this.url, this.#settings.request!)
         .catch(() => void (0));
 
@@ -99,9 +106,9 @@ export class EventSource extends EventTarget {
         res.headers.get("content-type")?.startsWith("text/event-stream")
       ) {
         // Announce connection
-        if (this.#readyState !== 2 && this.#firstTime) {
+        if (this.#readyState !== this.CLOSED && this.#firstTime) {
           this.#firstTime = false;
-          this.#readyState = 1;
+          this.#readyState = this.OPEN;
           const openEvent = new Event("open", {
             bubbles: false,
             cancelable: false,
@@ -119,13 +126,12 @@ export class EventSource extends EventTarget {
         let eventTypeBuffer = "";
         let dataBuffer = "";
         let readBuffer = "";
-
         for await (const chunk of reader) {
           const lines = this.#fixLineEnding(readBuffer + chunk).split("\n");
           readBuffer = lines.pop() ?? "";
 
           // Start loop for interpreting
-          for await (const line of lines) {
+          for (const line of lines) {
             if (!line) {
               this.#settings.lastEventID = lastEventIDBuffer;
 
@@ -144,7 +150,7 @@ export class EventSource extends EventTarget {
                   bubbles: false,
                 });
 
-                if (this.readyState !== 2) {
+                if (this.readyState !== this.CLOSED) {
                   // Fire event
                   super.dispatchEvent(event);
                   if (this.onmessage) this.onmessage(event);
@@ -162,8 +168,8 @@ export class EventSource extends EventTarget {
 
             let splitIndex = line.indexOf(":");
             splitIndex = splitIndex > 0 ? splitIndex : line.length;
-            const field = line.slice(0, splitIndex).trim();
-            const data = line.slice(splitIndex + 1).trim();
+            const field = decodeURI(line.slice(0, splitIndex).trim());
+            const data = decodeURI(line.slice(splitIndex + 1).trim());
             switch (field) {
               case "event":
                 // Set fieldBuffer to Field Value
@@ -175,7 +181,7 @@ export class EventSource extends EventTarget {
                 break;
               case "id":
                 // set lastEventID to Field Value
-                if (data !== "NULL") {
+                if (data && data !== "NULL" && !isNaN(parseInt(data))) {
                   lastEventIDBuffer = data;
                 }
                 break;
@@ -192,20 +198,19 @@ export class EventSource extends EventTarget {
         }
       } else {
         // Connection failed for whatever reason
-        // No retry
-        this.#readyState = 2;
+        this.#readyState = this.CLOSED;
         this.#abortController.abort();
         const errorEvent = new Event("error", {
           bubbles: false,
           cancelable: false,
         });
-
         super.dispatchEvent(errorEvent);
         if (this.onerror) await this.onerror(errorEvent);
-        break;
+        if (currentRetries >= 3) break;
+        currentRetries++;
       }
       // Set readyState to CONNECTING
-      this.#readyState = 0;
+      this.#readyState = this.CONNECTING;
 
       // Fire onerror
       const errorEvent = new Event("error", {
@@ -221,13 +226,13 @@ export class EventSource extends EventTarget {
         setTimeout(res, this.#settings.reconnectionTime)
       );
 
-      if (this.#readyState !== 0) break;
+      if (this.#readyState !== this.CONNECTING) break;
 
       if (this.#settings.lastEventID) {
-        this.#settings.request?.headers.set(
+        this.#settings.request?.headers.push([
           "Last-Event-ID",
           this.#settings.lastEventID,
-        );
+        ]);
       }
     }
   }
