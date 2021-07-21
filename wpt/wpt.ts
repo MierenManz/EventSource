@@ -344,7 +344,7 @@ async function update() {
         passed: [],
         failed: [],
         testSucceeded: result.status === 0 &&
-          result.harnessStatus?.status !== 0,
+          result.harnessStatus?.status === 0,
       };
     }
     for (const case_ of result.cases) {
@@ -666,6 +666,13 @@ function discoverTestsToRun(
             path ?? `${prefix}/${key}`,
             "http://web-platform.test:8000",
           );
+          if (
+            /\.(dedicated|shared|service)?worker(-module)?\.html$/.test(
+              url.pathname,
+            )
+          ) {
+            continue;
+          }
           //if (
           //  !url.pathname.endsWith(".any.html") &&
           //  !url.pathname.endsWith(".window.html")
