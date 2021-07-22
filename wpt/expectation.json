@@ -33,7 +33,7 @@
     "format-field-parsing.htm": false,
     "format-field-retry-bogus.htm": false,
     "format-field-retry-empty.htm": true,
-    "format-field-retry.htm": false,
+    "format-field-retry.htm": true,
     "format-field-unknown.htm": false,
     "format-leading-space.htm": false,
     "format-mime-bogus.htm": true,

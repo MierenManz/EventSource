@@ -14,7 +14,7 @@ interface PartialRequest extends Partial<CorsAttributeState> {
   headers: string[][];
   signal: AbortSignal;
   keepalive: boolean;
-  redirect: "follow"
+  redirect: "follow";
 }
 
 interface Settings {
@@ -48,8 +48,6 @@ export class EventSource extends EventTarget {
     reconnectionTime: 2200,
     lastEventID: "",
   };
-
-  #firstTime = true;
   #abortController = new AbortController();
 
   get url(): string {
@@ -70,7 +68,10 @@ export class EventSource extends EventTarget {
         ? window.location.toString()
         : new URL(url, window.location.href).toString();
     } catch (e) {
-      throw new DOMException(e.message, "SyntaxError");
+      // Dunno if this is allowd in the spec. But handy for testing purposes
+      if (e.name === "ReferenceError") {
+        this.#settings.url = new URL(url).toString();
+      } else throw new DOMException(e.message, "SyntaxError");
     }
 
     if (eventSourceInitDict?.withCredentials) {
@@ -84,7 +85,7 @@ export class EventSource extends EventTarget {
       ...this.#corsAtrributeState,
       signal: this.#abortController.signal,
       keepalive: true,
-      redirect: "follow"
+      redirect: "follow",
     };
 
     this.#fetch();
@@ -108,8 +109,7 @@ export class EventSource extends EventTarget {
         res.headers.get("content-type")?.startsWith("text/event-stream")
       ) {
         // Announce connection
-        if (this.#readyState !== this.CLOSED && this.#firstTime) {
-          this.#firstTime = false;
+        if (this.#readyState !== this.CLOSED) {
           this.#readyState = this.OPEN;
           const openEvent = new Event("open", {
             bubbles: false,
@@ -120,7 +120,10 @@ export class EventSource extends EventTarget {
         }
 
         // Decode body for interpreting
-        const decoder = new TextDecoderStream("utf-8", {ignoreBOM: false, fatal: false});
+        const decoder = new TextDecoderStream("utf-8", {
+          ignoreBOM: false,
+          fatal: false,
+        });
         const reader = res.body.pipeThrough(decoder);
 
         // Initiate buffers
@@ -183,14 +186,14 @@ export class EventSource extends EventTarget {
                 break;
               case "id":
                 // set lastEventID to Field Value
-                if (data && data !== "NULL" && !isNaN(parseInt(data))) {
+                if (data && data !== "NULL") {
                   lastEventIDBuffer = data;
                 }
                 break;
               case "retry": {
                 // set reconnectionTime to Field Value if int
                 const num = parseInt(data);
-                if (!isNaN(num)) {
+                if (!isNaN(num) && isFinite(num)) {
                   this.#settings.reconnectionTime = num;
                 }
                 break;
