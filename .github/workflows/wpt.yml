@@ -23,5 +23,5 @@ jobs:
       
       - name: Run WPT
         run: |
-          sudo deno run -A --unstable ./wpt/wpt.ts setup 
+          sudo ~/.deno/bin/deno run -A --unstable ./wpt/wpt.ts setup 
           deno run -A --unstable ./wpt/wpt.ts run -- eventsource/
