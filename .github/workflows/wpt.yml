@@ -20,8 +20,13 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: 3.8
-      
+
+      - name: Cofigure WPT host file
+        run: ./wpt make-hosts-file | sudo tee -a /etc/hosts
+        working-directory: wpt/wpt/
+
       - name: Run WPT
         run: |
-          sudo deno run -A --unstable ./wpt/wpt.ts setup 
+          sudo $(which deno) run -A --unstable ./wpt/wpt.ts setup 
+          sudo chmod +r wpt/util/manifest.json
           deno run -A --unstable ./wpt/wpt.ts run -- eventsource/
