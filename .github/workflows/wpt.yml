@@ -27,5 +27,6 @@ jobs:
 
       - name: Run WPT
         run: |
+          sudo chmod +r wpt/manifest.json
           sudo $(which deno) run -A --unstable ./wpt/wpt.ts setup 
           deno run -A --unstable ./wpt/wpt.ts run -- eventsource/
