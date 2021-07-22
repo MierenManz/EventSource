@@ -33,7 +33,7 @@
       "EventSource: lastEventId resets (id without colon)",
       "EventSource: lastEventId resets"
     ],
-    "format-field-id-null.window.html": false,
+    "format-field-id-null.window.html": true,
     "format-field-id.htm": false,
     "format-field-parsing.htm": false,
     "format-field-retry-bogus.htm": true,

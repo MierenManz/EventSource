@@ -180,7 +180,7 @@ export class EventSource extends EventTarget {
                 break;
               case "id":
                 // set lastEventID to Field Value
-                if (data && data !== "NULL") {
+                if (data && !data.includes("\u0000") && !data.includes("\x00")) {
                   lastEventIDBuffer = data;
                 }
                 break;
