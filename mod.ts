@@ -118,7 +118,7 @@ export class EventSource extends EventTarget {
         // Initiate buffers
         let lastEventIDBuffer = "";
         let eventTypeBuffer = "";
-        let dataBuffer = "";
+        let messageBuffer = "";
         let readBuffer = "";
         // REF: https://github.com/MierenManz/EventSource/issues/8
         // This for loop causes an uncaught exception in `eventsource/request-redirect.html`
@@ -136,14 +136,14 @@ export class EventSource extends EventTarget {
               this.#settings.lastEventID = lastEventIDBuffer;
 
               // Check if buffer is not an empty string
-              if (dataBuffer) {
+              if (messageBuffer) {
                 // Create event
                 if (!eventTypeBuffer) {
                   eventTypeBuffer = "message";
                 }
 
                 const event = new MessageEvent<string>(eventTypeBuffer, {
-                  data: dataBuffer.trim(),
+                  data: messageBuffer.trim(),
                   origin: res.url,
                   lastEventId: this.#settings.lastEventID,
                   cancelable: false,
@@ -158,7 +158,7 @@ export class EventSource extends EventTarget {
               }
 
               // Clear buffers
-              dataBuffer = "";
+              messageBuffer = "";
               eventTypeBuffer = "";
               continue;
             }
@@ -177,7 +177,7 @@ export class EventSource extends EventTarget {
                 break;
               case "data":
                 // append Field Value to dataBuffer
-                dataBuffer += `${data}\n`;
+                messageBuffer += `${data}\n`;
                 break;
               case "id":
                 // set lastEventID to Field Value
