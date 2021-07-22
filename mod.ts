@@ -8,9 +8,9 @@ interface Settings {
   url: string;
   fetchSettings: {
     headers: string[][];
-    credentials: "same-origin" | "include"
-    mode: "cors"
-  }
+    credentials: "same-origin" | "include";
+    mode: "cors";
+  };
   reconnectionTime: number;
   lastEventID: string;
 }
@@ -41,7 +41,7 @@ export class EventSource extends EventTarget {
   get readyState(): 0 | 1 | 2 {
     return this.#readyState;
   }
-  
+
   get url(): string {
     return this.#settings.url;
   }
@@ -84,12 +84,13 @@ export class EventSource extends EventTarget {
     let currentRetries = 0;
     while (this.#readyState < this.CLOSED) {
       const res = await fetch(this.url, {
-      cache: "no-store",
-      signal: this.#abortController.signal,
-      keepalive: true,
-      redirect: "follow",
-      ...this.#settings.fetchSettings
-    }).catch(() => void (0));
+        cache: "no-store",
+        // This seems to cause problems if the abort happens while `res.body` is being used
+        // signal: this.#abortController.signal,
+        keepalive: true,
+        redirect: "follow",
+        ...this.#settings.fetchSettings,
+      }).catch(() => void (0));
 
       if (
         res?.body &&
@@ -122,6 +123,7 @@ export class EventSource extends EventTarget {
         // REF: https://github.com/MierenManz/EventSource/issues/8
         // This for loop causes an uncaught exception in `eventsource/request-redirect.html`
         for await (const chunk of reader) {
+          if (this.#abortController.signal.aborted) break;
           const lines = decodeURIComponent(readBuffer + chunk)
             .replaceAll("\r\n", "\n")
             .replaceAll("\r", "\n")
@@ -194,6 +196,12 @@ export class EventSource extends EventTarget {
             }
           }
         }
+        if (this.#abortController.signal.aborted) {
+          // Cancel reader to close the EventSource properly
+          reader.cancel();
+          this.#readyState = this.CLOSED;
+          break;
+        }
       } else {
         // Connection failed for whatever reason
         this.#readyState = this.CLOSED;
@@ -207,33 +215,36 @@ export class EventSource extends EventTarget {
         if (currentRetries >= 3) break;
         currentRetries++;
       }
+
       // Set readyState to CONNECTING
-      this.#readyState = this.CONNECTING;
+      if (this.#readyState !== this.CLOSED) {
+        this.#readyState = this.CONNECTING;
 
-      // Fire onerror
-      const errorEvent = new Event("error", {
-        bubbles: false,
-        cancelable: false,
-      });
+        // Fire onerror
+        const errorEvent = new Event("error", {
+          bubbles: false,
+          cancelable: false,
+        });
 
-      super.dispatchEvent(errorEvent);
-      if (this.onerror) this.onerror(errorEvent);
+        super.dispatchEvent(errorEvent);
+        if (this.onerror) this.onerror(errorEvent);
 
-      // Timeout for re-establishing the connection
-      await new Promise<void>((res) => {
-        const id = setTimeout(() => {
-          clearTimeout(id);
-          res();
-        }, this.#settings.reconnectionTime);
-      });
+        // Timeout for re-establishing the connection
+        await new Promise<void>((res) => {
+          const id = setTimeout(() => {
+            clearTimeout(id);
+            res();
+          }, this.#settings.reconnectionTime);
+        });
 
-      if (this.#readyState !== this.CONNECTING) break;
+        if (this.#readyState !== this.CONNECTING) break;
 
-      if (this.#settings.lastEventID) {
-        this.#settings.fetchSettings.headers.push([
-          "Last-Event-ID",
-          this.#settings.lastEventID,
-        ]);
+        if (this.#settings.lastEventID) {
+          this.#settings.fetchSettings.headers.push([
+            "Last-Event-ID",
+            this.#settings.lastEventID,
+          ]);
+        }
       }
     }
   }

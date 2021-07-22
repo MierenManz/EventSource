@@ -1,7 +1,9 @@
 {
   "eventsource": {
     "event-data.html": true,
-    "eventsource-close.htm": false,
+    "eventsource-close.htm": [
+      "EventSource: close(), test events"
+    ],
     "eventsource-constructor-document-domain.htm": true,
     "eventsource-constructor-empty-url.any.html": true,
     "eventsource-constructor-empty-url.html": true,
@@ -27,7 +29,10 @@
     "format-field-event-empty.htm": true,
     "format-field-event.htm": true,
     "format-field-id-2.htm": false,
-    "format-field-id-3.window.html": false,
+    "format-field-id-3.window.html": [
+      "EventSource: lastEventId resets (id without colon)",
+      "EventSource: lastEventId resets"
+    ],
     "format-field-id-null.window.html": false,
     "format-field-id.htm": false,
     "format-field-parsing.htm": false,
@@ -45,7 +50,7 @@
     "request-accept.htm": true,
     "request-cache-control.htm": false,
     "request-credentials.htm": false,
-    "request-redirect.htm": false,
+    "request-redirect.htm": true,
     "request-status-error.htm": true
   }
 }
