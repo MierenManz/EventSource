@@ -4,59 +4,51 @@ interface EventSourceInit {
 
 type EventHandler<Evt extends Event> = (e: Evt) => void | Promise<void>;
 
-interface CorsAttributeState {
-  mode: "cors";
-  credentials: "same-origin" | "include";
-}
-
-interface PartialRequest extends Partial<CorsAttributeState> {
-  cache: "no-store";
-  headers: string[][];
-  signal: AbortSignal;
-  keepalive: boolean;
-  redirect: "follow";
-}
-
 interface Settings {
   url: string;
-  request: PartialRequest | null;
+  fetchSettings: {
+    headers: string[][];
+    credentials: "same-origin" | "include"
+    mode: "cors"
+  }
   reconnectionTime: number;
   lastEventID: string;
 }
 
 export class EventSource extends EventTarget {
-  withCredentials = false;
-
+  #withCredentials = false;
   #readyState: 0 | 1 | 2 = 0;
+  #abortController = new AbortController();
+  #settings: Settings = {
+    url: "",
+    fetchSettings: {
+      headers: [["Accept", "text/event-stream"]],
+      credentials: "same-origin",
+      mode: "cors",
+    },
+    reconnectionTime: 2200,
+    lastEventID: "",
+  };
 
-  get readyState(): 0 | 1 | 2 {
-    return this.#readyState;
-  }
+  onopen: EventHandler<Event> | null = null;
+  onmessage: EventHandler<MessageEvent<string>> | null = null;
+  onerror: EventHandler<Event> | null = null;
 
   CONNECTING: 0 = 0;
   OPEN: 1 = 1;
   CLOSED: 2 = 2;
 
-  #corsAtrributeState: CorsAttributeState = {
-    mode: "cors",
-    credentials: "same-origin",
-  };
-
-  #settings: Settings = {
-    url: "",
-    request: null,
-    reconnectionTime: 2200,
-    lastEventID: "",
-  };
-  #abortController = new AbortController();
-
+  get readyState(): 0 | 1 | 2 {
+    return this.#readyState;
+  }
+  
   get url(): string {
     return this.#settings.url;
   }
 
-  onopen: EventHandler<Event> | null = null;
-  onmessage: EventHandler<MessageEvent<string>> | null = null;
-  onerror: EventHandler<Event> | null = null;
+  get withCredentials(): boolean {
+    return this.#withCredentials;
+  }
 
   constructor(url: string, eventSourceInitDict?: EventSourceInit) {
     super();
@@ -69,24 +61,15 @@ export class EventSource extends EventTarget {
         : new URL(url, window.location.href).toString();
     } catch (e) {
       // Dunno if this is allowd in the spec. But handy for testing purposes
-      if (e.name === "ReferenceError") {
+      if (e instanceof ReferenceError) {
         this.#settings.url = new URL(url).toString();
       } else throw new DOMException(e.message, "SyntaxError");
     }
 
     if (eventSourceInitDict?.withCredentials) {
-      this.#corsAtrributeState.credentials = "include";
-      this.withCredentials = true;
+      this.#settings.fetchSettings.credentials = "include";
+      this.#withCredentials = true;
     }
-
-    this.#settings.request = {
-      cache: "no-store",
-      headers: [["Accept", "text/event-stream"]],
-      ...this.#corsAtrributeState,
-      signal: this.#abortController.signal,
-      keepalive: true,
-      redirect: "follow",
-    };
 
     this.#fetch();
     return;
@@ -100,8 +83,13 @@ export class EventSource extends EventTarget {
   async #fetch(): Promise<void> {
     let currentRetries = 0;
     while (this.#readyState < this.CLOSED) {
-      const res = await fetch(this.url, this.#settings.request!)
-        .catch(() => void (0));
+      const res = await fetch(this.url, {
+      cache: "no-store",
+      signal: this.#abortController.signal,
+      keepalive: true,
+      redirect: "follow",
+      ...this.#settings.fetchSettings
+    }).catch(() => void (0));
 
       if (
         res?.body &&
@@ -116,7 +104,7 @@ export class EventSource extends EventTarget {
             cancelable: false,
           });
           super.dispatchEvent(openEvent);
-          if (this.onopen) await this.onopen(openEvent);
+          if (this.onopen) this.onopen(openEvent);
         }
 
         // Decode body for interpreting
@@ -134,7 +122,10 @@ export class EventSource extends EventTarget {
         // REF: https://github.com/MierenManz/EventSource/issues/8
         // This for loop causes an uncaught exception in `eventsource/request-redirect.html`
         for await (const chunk of reader) {
-          const lines = this.#fixLineEnding(readBuffer + chunk).split("\n");
+          const lines = decodeURIComponent(readBuffer + chunk)
+            .replaceAll("\r\n", "\n")
+            .replaceAll("\r", "\n")
+            .split("\n");
           readBuffer = lines.pop() ?? "";
 
           // Start loop for interpreting
@@ -160,7 +151,7 @@ export class EventSource extends EventTarget {
                 if (this.readyState !== this.CLOSED) {
                   // Fire event
                   super.dispatchEvent(event);
-                  if (this.onmessage) await this.onmessage(event);
+                  if (this.onmessage) this.onmessage(event);
                 }
               }
 
@@ -175,8 +166,8 @@ export class EventSource extends EventTarget {
 
             let splitIndex = line.indexOf(":");
             splitIndex = splitIndex > 0 ? splitIndex : line.length;
-            const field = decodeURIComponent(line.slice(0, splitIndex).trim());
-            const data = decodeURIComponent(line.slice(splitIndex + 1).trim());
+            const field = line.slice(0, splitIndex).trim();
+            const data = line.slice(splitIndex + 1).trim();
             switch (field) {
               case "event":
                 // Set fieldBuffer to Field Value
@@ -212,7 +203,7 @@ export class EventSource extends EventTarget {
           cancelable: false,
         });
         super.dispatchEvent(errorEvent);
-        if (this.onerror) await this.onerror(errorEvent);
+        if (this.onerror) this.onerror(errorEvent);
         if (currentRetries >= 3) break;
         currentRetries++;
       }
@@ -226,7 +217,7 @@ export class EventSource extends EventTarget {
       });
 
       super.dispatchEvent(errorEvent);
-      if (this.onerror) await this.onerror(errorEvent);
+      if (this.onerror) this.onerror(errorEvent);
 
       // Timeout for re-establishing the connection
       await new Promise<void>((res) => {
@@ -239,17 +230,11 @@ export class EventSource extends EventTarget {
       if (this.#readyState !== this.CONNECTING) break;
 
       if (this.#settings.lastEventID) {
-        this.#settings.request?.headers.push([
+        this.#settings.fetchSettings.headers.push([
           "Last-Event-ID",
           this.#settings.lastEventID,
         ]);
       }
     }
-  }
-
-  #fixLineEnding(line: string): string {
-    return line
-      .replaceAll("\r\n", "\n")
-      .replaceAll("\r", "\n");
   }
 }
