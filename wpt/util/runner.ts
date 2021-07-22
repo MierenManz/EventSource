@@ -219,7 +219,11 @@ async function generateBundle(
           // testharness.js
           contents += `\nwindow.document = {title: ${
             JSON.stringify(documentTitle)
-          }};\n`;
+          },
+          getElementsByTagName: (name) => {
+            return [{ src: "testharness.js" }]
+          }
+        };\n`;
         }
         scriptContents.push([url.href, contents]);
       }
