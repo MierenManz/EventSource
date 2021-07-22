@@ -70,7 +70,7 @@ export class EventSource extends EventTarget {
         ? window.location.toString()
         : new URL(url, window.location.href).toString();
     } catch (e) {
-      throw new SyntaxError(e.message);
+      throw new DOMException(e.message, "SyntaxError");
     }
 
     if (eventSourceInitDict?.withCredentials) {
