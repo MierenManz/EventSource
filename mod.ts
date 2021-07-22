@@ -120,8 +120,7 @@ export class EventSource extends EventTarget {
         let eventTypeBuffer = "";
         let messageBuffer = "";
         let readBuffer = "";
-        // REF: https://github.com/MierenManz/EventSource/issues/8
-        // This for loop causes an uncaught exception in `eventsource/request-redirect.html`
+
         for await (const chunk of reader) {
           if (this.#abortController.signal.aborted) break;
           const lines = decodeURIComponent(readBuffer + chunk)
