@@ -131,6 +131,7 @@ export class EventSource extends EventTarget {
         let eventTypeBuffer = "";
         let dataBuffer = "";
         let readBuffer = "";
+        // This for loop causes an uncaught exception in `eventsource/request-redirect.html`
         for await (const chunk of reader) {
           const lines = this.#fixLineEnding(readBuffer + chunk).split("\n");
           readBuffer = lines.pop() ?? "";
@@ -158,7 +159,7 @@ export class EventSource extends EventTarget {
                 if (this.readyState !== this.CLOSED) {
                   // Fire event
                   super.dispatchEvent(event);
-                  if (this.onmessage) this.onmessage(event);
+                  if (this.onmessage) await this.onmessage(event);
                 }
               }
 
