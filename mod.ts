@@ -192,7 +192,7 @@ export class EventSource extends EventTarget {
                 break;
               case "retry": {
                 // set reconnectionTime to Field Value if int
-                const num = parseInt(data);
+                const num = Number(data);
                 if (!isNaN(num) && isFinite(num)) {
                   this.#settings.reconnectionTime = num;
                 }
@@ -227,9 +227,12 @@ export class EventSource extends EventTarget {
       if (this.onerror) await this.onerror(errorEvent);
 
       // Timeout for re-establishing the connection
-      await new Promise((res) =>
-        setTimeout(res, this.#settings.reconnectionTime)
-      );
+      await new Promise<void>((res) => {
+        const id = setTimeout(() => {
+          clearTimeout(id);
+          res();
+        }, this.#settings.reconnectionTime);
+      });
 
       if (this.#readyState !== this.CONNECTING) break;
 

@@ -31,7 +31,7 @@
     "format-field-id-null.window.html": false,
     "format-field-id.htm": false,
     "format-field-parsing.htm": false,
-    "format-field-retry-bogus.htm": false,
+    "format-field-retry-bogus.htm": true,
     "format-field-retry-empty.htm": true,
     "format-field-retry.htm": true,
     "format-field-unknown.htm": false,
