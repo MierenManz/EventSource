@@ -7,7 +7,7 @@
     "eventsource-constructor-empty-url.html": true,
     "eventsource-constructor-non-same-origin.htm": true,
     "eventsource-constructor-stringify.htm": true,
-    "eventsource-constructor-url-bogus.any.html": false,
+    "eventsource-constructor-url-bogus.any.html": true,
     "eventsource-constructor-url-multi-window.htm": false,
     "eventsource-cross-origin.htm": false,
     "eventsource-eventtarget.htm": true,
