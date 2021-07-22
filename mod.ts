@@ -198,7 +198,7 @@ export class EventSource extends EventTarget {
         }
         if (this.#abortController.signal.aborted) {
           // Cancel reader to close the EventSource properly
-          reader.cancel();
+          await reader.cancel();
           this.#readyState = this.CLOSED;
           break;
         }
@@ -231,10 +231,7 @@ export class EventSource extends EventTarget {
 
         // Timeout for re-establishing the connection
         await new Promise<void>((res) => {
-          const id = setTimeout(() => {
-            clearTimeout(id);
-            res();
-          }, this.#settings.reconnectionTime);
+          const id = setTimeout(() => res(clearTimeout(id)), this.#settings.reconnectionTime);
         });
 
         if (this.#readyState !== this.CONNECTING) break;
