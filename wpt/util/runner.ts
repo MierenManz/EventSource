@@ -220,6 +220,7 @@ async function generateBundle(
           contents += `\nwindow.document = {title: ${
             JSON.stringify(documentTitle)
           },
+          documentURI: ${JSON.stringify(location.toString())},
           getElementsByTagName: (name) => {
             return [{ src: "testharness.js" }]
           }

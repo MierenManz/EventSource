@@ -4,7 +4,7 @@
     "eventsource-close.htm": false,
     "eventsource-constructor-document-domain.htm": true,
     "eventsource-constructor-empty-url.any.html": true,
-    "eventsource-constructor-empty-url.html": false,
+    "eventsource-constructor-empty-url.html": true,
     "eventsource-constructor-non-same-origin.htm": true,
     "eventsource-constructor-stringify.htm": true,
     "eventsource-constructor-url-bogus.any.html": false,
