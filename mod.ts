@@ -67,7 +67,7 @@ export class EventSource extends EventTarget {
       // Allow empty url
       // https://github.com/web-platform-tests/wpt/blob/master/eventsource/eventsource-constructor-empty-url.any.js
       this.#settings.url = url == ""
-        ? ""
+        ? window.location.toString()
         : new URL(url, window.location.href).toString();
     } catch (e) {
       throw new SyntaxError(e.message);
