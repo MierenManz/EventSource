@@ -58,7 +58,7 @@ export class EventSource extends EventTarget {
       // https://github.com/web-platform-tests/wpt/blob/master/eventsource/eventsource-constructor-empty-url.any.js
       this.#settings.url = url == ""
         ? window.location.toString()
-        : new URL(url, window.location.href).toString();
+        : new URL(url, window.location?.href).toString();
     } catch (e) {
       // Dunno if this is allowd in the spec. But handy for testing purposes
       if (e instanceof ReferenceError) {
