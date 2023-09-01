@@ -6,6 +6,6 @@ This module is a spec compliant(I hope) `EventSource` for deno.
 
 ## Contributors
 
-- [Skyler van Boheemen](https://github.com/mierenmanz)
+- [Skye](https://github.com/mierenmanz)
 - [Andreu Botella](https://github.com/andreubotella)
 - [Divy Srivastava](https://github.com/littledivy)
